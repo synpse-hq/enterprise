@@ -1,0 +1,98 @@
+version: "3.7"
+volumes:
+  synpse-psql-user-data:
+  synpse-clickhouse-user-data:
+  synpse-caddy-user-data:
+  synpse-caddy-user-cfg:
+
+services:
+  synpse:
+    image: quay.io/synpse/controller
+    container_name: synpse-controller
+    network_mode: bridge
+    logging:
+      options:
+        max-size: 10m
+    restart: always
+    links:
+      - postgres:postgres
+      - clickhouse:clickhouse
+    depends_on:
+      - postgres
+      - clickhouse
+    ports:
+      - "8080:8080"
+    volumes:
+      - "synpse-clickhouse-user-data:/var/lib/clickhouse"
+      - ${PWD}/assets/secrets/id_rsa:/run/secrets/ssh-server/id_rsa
+    environment:
+      - CONTROLLER_URI=:8080
+      - CONTROLLER_DATABASE_TYPE=${CONTROLLER_DATABASE_TYPE}
+      - CONTROLLER_DATABASE_HOST=${CONTROLLER_DATABASE_HOST}
+      - CONTROLLER_DATABASE_PASSWORD=${CONTROLLER_DATABASE_PASSWORD}
+      - CONTROLLER_DATABASE_USERNAME=${CONTROLLER_DATABASE_USERNAME}
+      #
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      #
+      - CONTROLLER_ENCRYPTION_KEY_PRIMARY=${CONTROLLER_ENCRYPTION_KEY_PRIMARY}
+      - CONTROLLER_ENCRYPTION_KEY_SECONDARY=${CONTROLLER_ENCRYPTION_KEY_SECONDARY}
+      #
+      - CONTROLLER_CLICKHOUSE_HOST=${CONTROLLER_CLICKHOUSE_HOST}
+      - CONTROLLER_CLICKHOUSE_DATABASE=${CONTROLLER_CLICKHOUSE_DATABASE}
+      - CONTROLLER_CLICKHOUSE_USERNAME=${CONTROLLER_CLICKHOUSE_USERNAME}
+      - CONTROLLER_CLICKHOUSE_PASSWORD=${CONTROLLER_CLICKHOUSE_PASSWORD}
+      - CONTROLLER_CLICKHOUSE_ENABLE=${CONTROLLER_CLICKHOUSE_ENABLE}
+      #
+      - CONTROLLER_SSH_SERVER_KEY=${CONTROLLER_SSH_SERVER_KEY}
+  postgres:
+    image: postgres:13
+    network_mode: bridge
+    container_name: synpse-postgres
+    restart: always
+    volumes:
+      - "synpse-psql-user-data:/var/lib/postgresql/data"
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${CONTROLLER_DATABASE_USERNAME}
+      - POSTGRES_PASSWORD=${CONTROLLER_DATABASE_PASSWORD}
+      - POSTGRES_DB=${CONTROLLER_DATABASE_NAME}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+  clickhouse:
+    image: yandex/clickhouse-server
+    network_mode: bridge
+    container_name: synpse-clickhouse
+    restart: always
+    volumes:
+      - "synpse-clickhouse-user-data:/var/lib/clickhouse"
+      - ${PWD}/hacks/infra/clickhouse/config.xml:/etc/clickhouse-server/config.d/config.xml
+    ports:
+      - 8123:8123
+      - 9000:9000
+      - 8001:8001
+  caddy:
+    image: caddy:latest
+    network_mode: bridge
+    container_name: synpse-caddy
+    restart: always
+    links:
+      - synpse:synpse
+    depends_on:
+      - synpse
+    command:
+        - caddy
+        - reverse-proxy
+        - --from
+        - synpse.faros.sh:8443 # This should be your domain and port, same as in your router
+        - --to
+        - synpse:8080    
+    ports:
+      - 8443:8443
+    volumes:
+      - "synpse-caddy-user-data:/data"
+      - "synpse-caddy-user-cfg:/config"
+
+networks:
+  postgres:
+    driver: bridge
