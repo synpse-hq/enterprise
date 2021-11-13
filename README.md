@@ -13,10 +13,7 @@ Synpse Enterprise is a self-hosted version of Synpse, intended to run in your ow
 
 ### docker-compose
 
-docker-compose deployment models allows you to run all-in-one Synpse Enterprise deployment on a single server.
-It should not be used in production deployment, as it does not give you full HA capabilities.
-
-> For production use Kubernetes deployment model
+docker-compose deployment models allows you to run all-in-one Synpse Enterprise deployment on a single server. When used in production, ensure that you perform regular backups of your Postgres database. We recommend using one of the managed services such as [GCP CloudSQL](https://cloud.google.com/sql), [AWS RDS](https://aws.amazon.com/rds/).
 
 1. Configure DNS to point to your server. This is how it look on our CloudFlare account:
 
@@ -64,4 +61,4 @@ docker-compose up -d
 
 ### Kubernetes HELM
 
-Soon.
+Comming soon.
